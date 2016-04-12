@@ -18,11 +18,11 @@
   `with-safe-transport` macro expects to pass the `msg` to all
   `<op>-reply` functions.)"
   [_]
-  (as-> (dir/scan-all {})
-      $
+  (as-> (dir/scan-all {}) $
     (get-in $ [::track/deps :dependencies])
     (map (fn [[k v]] [k (into (sorted-set) v)]) $)
-    (into (sorted-map) $)))
+    (into (sorted-map) $)
+    {:dependencies $}))
 
 (defn wrap-classpath
   "Middleware that provides the java classpath."
