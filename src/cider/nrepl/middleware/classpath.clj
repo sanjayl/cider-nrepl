@@ -11,10 +11,17 @@
 (defn classpath-reply [msg]
   {:classpath (classpath)})
 
-(defn dependencies-reply [msg]
+(defn dependencies-reply
+  "Returns a sorted map, with keys being the namespaces on the
+  classpath, and values being a sorted set of that namespace's
+  dependencies. (Note: requires a single arity function since the
+  `with-safe-transport` macro expects to pass the `msg` to all
+  `<op>-reply` functions.)"
+  [_]
   (as-> (dir/scan-all {})
       $
     (get-in $ [::track/deps :dependencies])
+    (map (fn [[k v]] [k (into (sorted-set) v)]) $)
     (into (sorted-map) $)))
 
 (defn wrap-classpath
