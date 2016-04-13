@@ -12,16 +12,16 @@
   {:classpath (classpath)})
 
 (defn dependencies-reply
-  "Returns a sorted map, with keys being the namespaces on the
-  classpath, and values being a sorted set of that namespace's
-  dependencies. (Note: the `with-safe-transport` macro expects this to
-  be a single arity function, passing the `msg` in. We don't need it,
-  hence the atypical signature."
+  "Returns an alphabetically sorted list of pairs, with head being a
+  namespace on the classpath, and tail being an alphabetically sorted
+  list of head's dependencies. (Note: the `with-safe-transport` macro
+  expects this to be a single arity function, passing the `msg` in. We
+  don't need it, hence the atypical signature."
   [& _]
   (as-> (dir/scan-all {}) $
     (get-in $ [::track/deps :dependencies])
-    (map (fn [[k v]] [k (into (sorted-set) v)]) $) ;; sort each set of dependencies
-    (into (sorted-map) $) ;; sort the namespaces themselves
+    (map (fn [[k v]] [k (sort v)]) $)
+    (sort-by first $)
     {:dependencies $}))
 
 (defn wrap-classpath
@@ -41,5 +41,5 @@
    "dependencies"
    {:doc "Obtains a dependency tree for the namespaces on the classpath"
     :returns {"dependencies"
-              "Map with keys -> namespaces on classpath, values -> set of that ns's dependencies.",
+              "List of pairs, [head -> ns, tail -> ns's dependencies]."
               "status" "done"}}}})
