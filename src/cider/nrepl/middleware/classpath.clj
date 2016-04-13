@@ -14,18 +14,19 @@
 (defn dependencies-reply
   "Returns a sorted map, with keys being the namespaces on the
   classpath, and values being a sorted set of that namespace's
-  dependencies. (Note: requires a single arity function since the
-  `with-safe-transport` macro expects to pass the `msg` to all
-  `<op>-reply` functions.)"
-  [_]
+  dependencies. (Note: the `with-safe-transport` macro expects this to
+  be a single arity function, passing the `msg` in. We don't need it,
+  hence the atypical signature."
+  [& _]
   (as-> (dir/scan-all {}) $
     (get-in $ [::track/deps :dependencies])
-    (map (fn [[k v]] [k (into (sorted-set) v)]) $)
-    (into (sorted-map) $)
+    (map (fn [[k v]] [k (into (sorted-set) v)]) $) ;; sort each set of dependencies
+    (into (sorted-map) $) ;; sort the namespaces themselves
     {:dependencies $}))
 
 (defn wrap-classpath
-  "Middleware that provides the java classpath."
+  "Middleware that provides the java classpath as well as dependency
+  information."
   [handler]
   (with-safe-transport handler
     "classpath" classpath-reply

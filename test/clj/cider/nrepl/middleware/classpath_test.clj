@@ -4,7 +4,7 @@
             [clojure.test :refer :all]))
 
 (deftest dependencies-reply-test
-  (let [deps         (cp/dependencies-reply {})
+  (let [deps         (:dependencies (cp/dependencies-reply))
         test-ns-deps (get deps 'cider.test-ns.first-test-ns)]
     (is (map? deps))
     (is (every? set? (vals deps)))
