@@ -23,7 +23,6 @@
                  :let [stack (find-cycles deps {:seen #{} :stack [root] :graph graph :root root})]]
              stack)))
 
-
 (defn classpath-reply [msg]
   {:classpath (classpath)})
 
