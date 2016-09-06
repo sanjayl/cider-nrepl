@@ -1,6 +1,31 @@
 (ns cider.nrepl.middleware.xref
+  (:require [clojure.java.io :as io])
   (:import (clojure.lang RT)
            (java.io LineNumberReader InputStreamReader Reader PushbackReader)))
+
+(defn- source-code-of [var]
+  (when-let [path (:file (meta var))]
+    (with-open [r   (io/reader path) ;; TODO: FIGURE OUT RESOURCE OR PATH HERE
+                pbr (java.io.PushbackReader. r)]
+      (dotimes [_ (-> var meta :line dec)] (.readLine r))
+      (binding [*read-eval* false]
+        (read pbr)))))
+
+(defn- candidate-xrefs [sym]
+  (->> (all-ns)
+       (filter #(ns-resolve % (symbol sym)))
+       (map (comp vals ns-interns))
+       flatten))
+
+(defn callers-of [fn-name]
+  (let [f (symbol fn-name)]
+    (->> (candidate-xrefs f)
+         (filter ifn?)
+         (filter (fn [xref] (some #{f} (-> xref source-code-of flatten)))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;   OLD ;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (defn- get-source-from-var
   "Returns a string of the source code for the given symbol, if it can
