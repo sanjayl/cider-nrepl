@@ -3,65 +3,28 @@
   (:import (clojure.lang RT)
            (java.io LineNumberReader InputStreamReader Reader PushbackReader)))
 
-(defn- source-code-of [var]
+(defn- source-code [var]
   (when-let [path (:file (meta var))]
-    (with-open [r   (io/reader path) ;; TODO: FIGURE OUT RESOURCE OR PATH HERE
-                pbr (java.io.PushbackReader. r)]
-      (dotimes [_ (-> var meta :line dec)] (.readLine r))
-      (binding [*read-eval* false]
-        (read pbr)))))
+    (when-let [uri (io/resource path)]
+      (with-open [r   (io/reader uri)
+                  pbr (java.io.PushbackReader. r)]
+        (dotimes [_ (-> var meta :line dec)] (.readLine r))
+        (binding [*read-eval* false]
+          (try (read pbr)
+               (catch Exception E)))))))
 
-(defn- candidate-xrefs [sym]
+(defn- possible-callers-of [sym]
   (->> (all-ns)
-       (filter #(ns-resolve % (symbol sym)))
+       (filter #(ns-resolve % sym))
        (map (comp vals ns-interns))
        flatten))
 
-(defn callers-of [fn-name]
-  (let [f (symbol fn-name)]
-    (->> (candidate-xrefs f)
+(defn- meta-with-source [sym]
+  (assoc (meta sym) :source (source-code sym)))
+
+(defn callers-of [t]
+  (let [target (symbol t)]
+    (->> (possible-callers-of target)
          (filter ifn?)
-         (filter (fn [xref] (some #{f} (-> xref source-code-of flatten)))))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;   OLD ;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(defn- get-source-from-var
-  "Returns a string of the source code for the given symbol, if it can
-  find it. This requires that the symbol resolve to a Var defined in
-  a namespace for which the .clj is in the classpath. Returns nil if
-  it can't find the source.
-  Example: (get-source-from-var 'filter)"
-  [v]
-  (when-let [filepath (:file (meta v))]
-    (when-let [strm (.getResourceAsStream (RT/baseLoader) filepath)]
-      (with-open [rdr (LineNumberReader. (InputStreamReader. strm))]
-        (dotimes [_ (dec (:line (meta v)))] (.readLine rdr))
-        (let [text (StringBuilder.)
-              pbr (proxy [PushbackReader] [rdr]
-                    (read [] (let [#^Reader this this
-                                   i (proxy-super read)]
-                               (.append text (char i))
-                               i)))]
-          (read (PushbackReader. pbr))
-          (str text))))))
-
-(defn- recursive-contains? [coll obj]
-  "True if coll contains obj. Obj can't be a seq"
-  (not (empty? (filter #(= obj %) (flatten coll)))))
-
-(defn- does-var-call-fn [var fn]
-  "Checks if a var calls a function named 'fn"
-  (when-let [source (get-source-from-var var)]
-    (when (recursive-contains? (read-string source) fn)
-      var)))
-
-(defn all-vars-who-call [sym]
-  (as-> (all-ns)
-      $
-    (filter #(ns-resolve % sym) $)
-    (map (comp vals ns-interns) $)
-    (flatten $)
-    (map #(does-var-call-fn % sym) $)
-    (filter ifn? $)))
+         (map meta-with-source)
+         (filter #(some #{target} (-> % :source flatten))))))
