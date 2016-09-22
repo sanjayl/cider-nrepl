@@ -58,7 +58,7 @@
         resolved-source (map #(try-to-resolve ns %) flat-source)]
     (some #{v} resolved-source)))
 
-(defn- fns-in-ns-that-use
+(defn- search-ns-for-var
   "Finds all functions in the given namespace NS, reads in their
   source code, resolves the symbols to vars, and checks to see if the
   given var V matches any of the sourcecode."
@@ -69,11 +69,17 @@
        (mapcat read-source-from-a-file)  ; Adds :source to the above keys
        (filter #(fn-uses-var? % v))))    ; Does var occur in the fn's source?
 
-(defn- does-this-ns-alias-that-that-ns?
-  "Predicate that returns `true` if the first namespace (THIS)
-  contains an alias to the second namespace (THAT)."
-  [this that]
-  (->> this ns-aliases vals (some #{that})))
+(defn- can-ns-resolve-var?
+  "Predicate that returns `true` if namespace `given-ns` can utilize
+  the fully namespace qualified var `var`; i.e., is `var` or `var's`
+  ns required, used, or referred in `given-ns`."
+  [given-ns var]
+  (when-let [var-meta (meta var)]
+    (let [var-sym (:name var-meta)
+          var-ns  (:ns var-meta)]
+      (or (= var (ns-resolve given-ns var-sym))           ;; require
+          (->> given-ns ns-aliases vals (some #{var-ns})) ;; require as
+          (->> given-ns ns-map vals (some #{var}))))))    ;; use/refer
 
 (defn callers-of
   "Pass in a fully namespace QUALIFIED-NAME, and get a collection of
@@ -83,5 +89,5 @@
   [qualified-name]
   (let [v (resolve (symbol qualified-name))]
     (->> (all-ns)
-         (filter #(does-this-ns-alias-that-that-ns? % (-> v meta :ns))) ; Narrow search space
-         (mapcat #(fns-in-ns-that-use % v))))) ; Searches the source code and returns the xrefs
+         (filter #(can-ns-resolve-var? % (-> v meta :ns))) ; Narrow search space
+         (mapcat #(search-ns-for-var % v))))) ; Searches the source code and returns the xrefs
