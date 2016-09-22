@@ -8,3 +8,8 @@
   "Multiple vars with the same name in different ns's. Used to test ns-list-vars-by-name."
   []
   true)
+
+(defn target
+  "Used for xref testing"
+  []
+  true)
